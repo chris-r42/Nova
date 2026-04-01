@@ -20,7 +20,7 @@ $separator: var(--cpd-color-gray-400);
 
 /* RoomList */
 /* ******************** */
-$roomlist-bg-color: rgba(38, 40, 45, 0.9);
+$roomlist-bg-color: rgba(14, 14, 16, 0.95);
 $roomsublist-skeleton-ui-bg: linear-gradient(180deg, $background 0%, #ffffff00 100%);
 $roomtile-default-badge-bg-color: var(--cpd-color-icon-secondary);
 /* ******************** */
@@ -65,7 +65,7 @@ $icon-button-color: var(--cpd-color-icon-tertiary);
 /* Colors that aren't in Figma and are theme specific - we need to get rid of these */
 /* ******************** */
 $header-panel-text-secondary-color: #c8c8cd;
-$room-highlight-color: #343a46;
+$room-highlight-color: #1e1a14;
 $text-secondary-color: #b9bec6;
 /* ******************** */
 
@@ -79,10 +79,10 @@ $info-plinth-bg-color: $header-panel-bg-color;
 $event-selected-color: var(--cpd-color-bg-subtle-secondary);
 $topleftmenu-color: $primary-content;
 $roomtopic-color: $text-secondary-color;
-$spacePanel-bg-color: rgba(38, 39, 43, 0.82);
+$spacePanel-bg-color: rgba(10, 10, 12, 0.92);
 $panel-gradient: rgba(34, 38, 46, 0), rgba(34, 38, 46, 1);
 $h3-color: $primary-content;
-$event-highlight-bg-color: #25271f;
+$event-highlight-bg-color: #1f1200;
 $header-panel-text-primary-color: $text-secondary-color;
 /* ******************** */
 
@@ -191,7 +191,7 @@ $message-action-bar-hover-border-color: $header-panel-text-primary-color;
 /* Reaction row */
 /* ******************** */
 $reaction-row-button-hover-border-color: $header-panel-text-primary-color;
-$reaction-row-button-selected-bg-color: #1f6954;
+$reaction-row-button-selected-bg-color: #7a3d00;
 /* ******************** */
 
 /* Voice messages */
@@ -202,7 +202,7 @@ $voice-record-icon-color: $quaternary-content;
 
 /* Bubble tiles */
 /* ******************** */
-$eventbubble-self-bg: var(--cpd-color-green-300);
+$eventbubble-self-bg: var(--cpd-color-green-700);
 $eventbubble-others-bg: var(--cpd-color-gray-300);
 $eventbubble-bg-hover: var(--cpd-color-bg-subtle-secondary);
 /* ******************** */
@@ -253,7 +253,7 @@ $breadcrumb-placeholder-bg-color: #272c35;
 $resend-button-divider-color: var(--cpd-color-gray-700);
 $inlinecode-border-color: $quinary-content;
 $inlinecode-background-color: $system;
-$codeblock-background-color: #2a3039;
+$codeblock-background-color: #18141000;
 $scrollbar-thumb-color: rgba(255, 255, 255, 0.2);
 $selected-color: $room-highlight-color;
 /* ******************** */
@@ -263,6 +263,7 @@ $selected-color: $room-highlight-color;
 :root {
     --lp-background-blur: 45px;
 }
+
 /* ******************** */
 
 body {
@@ -311,8 +312,8 @@ body {
 /* Splash Page Gradient */
 .mx_SplashPage::before {
     background-image:
-        radial-gradient(53.85% 66.75% at 87.55% 0%, hsla(0deg, 0%, 11%, 0.15) 0%, hsla(250deg, 100%, 88%, 0) 100%),
-        radial-gradient(41.93% 41.93% at 0% 0%, hsla(0deg, 0%, 38%, 0.28) 0%, hsla(250deg, 100%, 88%, 0) 100%),
-        radial-gradient(100% 100% at 0% 0%, hsla(250deg, 100%, 88%, 0.3) 0%, hsla(0deg, 100%, 86%, 0) 100%),
-        radial-gradient(106.35% 96.26% at 100% 0%, hsla(25deg, 100%, 88%, 0.4) 0%, hsla(167deg, 76%, 82%, 0) 100%) !important;
+        radial-gradient(53.85% 66.75% at 87.55% 0%, hsla(30deg, 100%, 20%, 0.25) 0%, hsla(30deg, 100%, 10%, 0) 100%),
+        radial-gradient(41.93% 41.93% at 0% 0%, hsla(30deg, 80%, 15%, 0.3) 0%, hsla(30deg, 100%, 5%, 0) 100%),
+        radial-gradient(100% 100% at 0% 0%, hsla(30deg, 100%, 30%, 0.2) 0%, hsla(0deg, 0%, 0%, 0) 100%),
+        radial-gradient(106.35% 96.26% at 100% 0%, hsla(30deg, 100%, 50%, 0.3) 0%, hsla(20deg, 80%, 20%, 0) 100%) !important;
 }
