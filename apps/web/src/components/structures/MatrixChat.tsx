@@ -842,6 +842,9 @@ export default class MatrixChat extends React.PureComponent<IProps, IState> {
             case Action.ViewHomePage:
                 this.viewHome(payload.justRegistered);
                 break;
+            case Action.ViewGameClips:
+                this.setPage(PageType.GameClips);
+                break;
             case Action.Share:
                 this.viewShare(payload.format, payload.msg);
                 break;

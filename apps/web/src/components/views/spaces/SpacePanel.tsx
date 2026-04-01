@@ -30,6 +30,7 @@ import {
     UserProfileSolidIcon,
     PlusIcon,
     ChevronRightIcon,
+    PlaySolidIcon,
 } from "@vector-im/compound-design-tokens/assets/web/icons";
 
 import { _t } from "../../../languageHandler";
@@ -80,6 +81,31 @@ import { Landmark, LandmarkNavigation } from "../../../accessibility/LandmarkNav
 import { KeyboardShortcut } from "../settings/KeyboardShortcut";
 import { ModuleApi } from "../../../modules/Api.ts";
 import { useModuleSpacePanelItems } from "../../../modules/ExtrasApi.ts";
+import PageType from "../../../PageTypes";
+
+interface GameClipsButtonProps {
+    isPanelCollapsed: boolean;
+    isActive: boolean;
+}
+
+const GameClipsButton: React.FC<GameClipsButtonProps> = ({ isPanelCollapsed, isActive }) => {
+    return (
+        <li
+            className={classNames("mx_SpaceItem", { collapsed: isPanelCollapsed })}
+            role="treeitem"
+            aria-selected={isActive}
+        >
+            <SpaceButton
+                className={classNames("nova_GameClipsButton", { mx_SpaceButton_active: isActive })}
+                label="Game Clips"
+                isNarrow={isPanelCollapsed}
+                size="32px"
+                icon={<PlaySolidIcon />}
+                onClick={() => defaultDispatcher.dispatch({ action: Action.ViewGameClips })}
+            />
+        </li>
+    );
+};
 
 const useSpaces = (): [Room[], MetaSpace[], Room[], SpaceKey] => {
     const invites = useEventEmitterState<Room[]>(SpaceStore.instance, UPDATE_INVITED_SPACES, () => {
@@ -304,6 +330,19 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
 
         const moduleSpaceItems = useModuleSpacePanelItems(ModuleApi.instance.extras);
 
+        const [isGameClipsActive, setIsGameClipsActive] = useState(false);
+        useDispatcher(defaultDispatcher, (payload: ActionPayload) => {
+            if (payload.action === Action.ViewGameClips) {
+                setIsGameClipsActive(true);
+            } else if (
+                payload.action === Action.ViewRoom ||
+                payload.action === Action.ViewHomePage ||
+                payload.action === Action.ViewUserSettings
+            ) {
+                setIsGameClipsActive(false);
+            }
+        });
+
         const metaSpacesSection = metaSpaces
             .filter((key) => !(key === MetaSpace.VideoRooms && !SettingsStore.getValue("feature_video_rooms")))
             .map((key) => {
@@ -328,6 +367,7 @@ const InnerSpacePanel = React.memo<IInnerSpacePanelProps>(
                 aria-label={_t("common|spaces")}
             >
                 {metaSpacesSection}
+                <GameClipsButton isPanelCollapsed={isPanelCollapsed} isActive={isGameClipsActive} />
                 {invites.map((s) => (
                     <SpaceItem
                         key={s.roomId}

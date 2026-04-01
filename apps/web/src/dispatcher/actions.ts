@@ -58,6 +58,11 @@ export enum Action {
     ViewHomePage = "view_home_page",
 
     /**
+     * Navigates to the Nova Game Clips tab
+     */
+    ViewGameClips = "view_game_clips",
+
+    /**
      * Forces the theme to reload. No additional payload information required.
      */
     RecheckTheme = "recheck_theme",
