@@ -19,11 +19,11 @@
     <meta property="og:image" content="<%= og_image_url %>" />
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
-        style-src 'self' 'unsafe-inline' <%= csp_extra_source %>;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com <%= csp_extra_source %>;
         script-src 'self' 'wasm-unsafe-eval' https://www.recaptcha.net/recaptcha/ https://www.gstatic.com/recaptcha/ <%= csp_extra_source %>;
         img-src * blob: data:;
         connect-src * blob:;
-        font-src 'self' data: <%= csp_extra_source %>;
+        font-src 'self' data: https://fonts.gstatic.com <%= csp_extra_source %>;
         media-src * blob: data:;
         child-src * blob: data:;
         worker-src 'self' blob: <%= csp_extra_source %>;
