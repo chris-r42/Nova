@@ -34,6 +34,8 @@ interface IProps extends Omit<React.ComponentProps<typeof BaseAvatar>, "name" | 
     hideTitle?: boolean;
     children?: ReactNode;
     ref?: Ref<HTMLElement>;
+    /** Skip thumbnailing — use full-resolution source. Required for GIF avatars. */
+    noThumb?: boolean;
 }
 
 export default function MemberAvatar({
@@ -43,6 +45,7 @@ export default function MemberAvatar({
     forceHistorical,
     fallbackUserId,
     hideTitle,
+    noThumb,
     member: propsMember,
     ref,
     ...props
@@ -61,11 +64,10 @@ export default function MemberAvatar({
     let imageUrl: string | null | undefined;
     if (member?.name) {
         if (member.getMxcAvatarUrl()) {
-            imageUrl = mediaFromMxc(member.getMxcAvatarUrl() ?? "", cli).getThumbnailOfSourceHttp(
-                parseInt(size, 10),
-                parseInt(size, 10),
-                resizeMethod,
-            );
+            const media = mediaFromMxc(member.getMxcAvatarUrl() ?? "", cli);
+            imageUrl = noThumb
+                ? media.srcHttp
+                : media.getThumbnailOfSourceHttp(parseInt(size, 10), parseInt(size, 10), resizeMethod);
         }
 
         if (!title) {

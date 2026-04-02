@@ -16,6 +16,7 @@ import { Container, type Member, type IDevice } from "../UserInfo";
 import PresenceLabel from "../../rooms/PresenceLabel";
 import CopyableText from "../../elements/CopyableText";
 import { UserInfoHeaderVerificationView } from "./UserInfoHeaderVerificationView";
+import { mediaFromMxc } from "../../../../customisations/Media";
 
 export interface UserInfoHeaderViewProps {
     member: Member;
@@ -33,6 +34,7 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
     const vm = useUserfoHeaderViewModel({ member, roomId });
     const avatarUrl = (member as User).avatarUrl;
     const displayName = (member as RoomMember).rawDisplayName;
+    const bannerHttpUrl = vm.novaBannerMxc ? (mediaFromMxc(vm.novaBannerMxc).srcHttp ?? null) : null;
 
     let presenceLabel: JSX.Element | undefined;
 
@@ -50,7 +52,12 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
 
     return (
         <React.Fragment>
-            <div className="mx_UserInfo_avatar">
+            {bannerHttpUrl && (
+                <div className="nova_UserInfo_banner">
+                    <img src={bannerHttpUrl} alt="" className="nova_UserInfo_banner_img" />
+                </div>
+            )}
+            <div className={`mx_UserInfo_avatar${bannerHttpUrl ? " nova_UserInfo_avatar_hasBanner" : ""}`}>
                 <div className="mx_UserInfo_avatar_transition">
                     <div className="mx_UserInfo_avatar_transition_child">
                         <MemberAvatar
@@ -61,6 +68,7 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
                             fallbackUserId={member.userId}
                             onClick={vm.onMemberAvatarClick}
                             urls={avatarUrl ? [avatarUrl] : undefined}
+                            noThumb
                         />
                     </div>
                 </div>
@@ -88,6 +96,11 @@ export const UserInfoHeaderView: React.FC<UserInfoHeaderViewProps> = ({
                             {vm.userIdentifier}
                         </CopyableText>
                     </Text>
+                    {vm.novaBio && (
+                        <Text size="sm" weight="regular" className="nova_UserInfo_bio">
+                            {vm.novaBio}
+                        </Text>
+                    )}
                 </Flex>
                 {!hideVerificationSection && <UserInfoHeaderVerificationView member={member} devices={devices} />}
             </Container>

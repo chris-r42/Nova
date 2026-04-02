@@ -6,12 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useState, useId } from "react";
+import React, { type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { logger } from "matrix-js-sdk/src/logger";
 import { EditInPlace, Alert, ErrorMessage } from "@vector-im/compound-web";
 import PopOutIcon from "@vector-im/compound-design-tokens/assets/web/icons/pop-out";
 import SignOutIcon from "@vector-im/compound-design-tokens/assets/web/icons/sign-out";
 import { Flex } from "@element-hq/web-shared-components";
+
+import { useOwnNovaProfile } from "../../../hooks/useNovaProfile";
+import { mediaFromMxc } from "../../../customisations/Media";
 
 import { _t } from "../../../languageHandler";
 import { OwnProfileStore } from "../../../stores/OwnProfileStore";
@@ -114,6 +117,15 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
     const [maxUploadSize, setMaxUploadSize] = useState<number | undefined>();
     const [displayNameError, setDisplayNameError] = useState<boolean>(false);
 
+    const { bio, bannerMxc, supported: profileSupported, saveBio, saveBanner, removeBanner } = useOwnNovaProfile();
+    const [bioValue, setBioValue] = useState("");
+    const [bannerError, setBannerError] = useState(false);
+    const bannerInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (bio !== null) setBioValue(bio);
+    }, [bio]);
+
     const toastRack = useToastContext();
 
     const client = useMatrixClientContext();
@@ -182,6 +194,25 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
         }
     }, [displayName, client]);
 
+    const onBannerChange = useCallback(
+        async (e: ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+                setBannerError(false);
+                const { content_uri: uri } = await client.uploadContent(file);
+                await saveBanner(uri);
+            } catch {
+                setBannerError(true);
+            }
+        },
+        [client, saveBanner],
+    );
+
+    const onBioSave = useCallback(async (): Promise<void> => {
+        await saveBio(bioValue);
+    }, [bioValue, saveBio]);
+
     const userIdentifier = useMemo(
         () =>
             UserIdentifierCustomisations.getDisplayUserIdentifier(client.getSafeUserId(), {
@@ -233,6 +264,51 @@ const UserProfileSettings: React.FC<UserProfileSettingsProps> = ({
                         : _t("settings|general|avatar_upload_error_text", { size: formatBytes(maxUploadSize) })}
                 </Alert>
             )}
+
+            {profileSupported && (
+                <div className="nova_ProfileSettings_extended">
+                    <h3 className="nova_ProfileSettings_section">Profile Banner</h3>
+                    <div className="nova_ProfileSettings_banner">
+                        {bannerMxc && (
+                            <div className="nova_ProfileSettings_banner_preview">
+                                <img src={mediaFromMxc(bannerMxc).srcHttp ?? ""} alt="Profile banner" />
+                                <button className="nova_ProfileSettings_banner_remove" onClick={removeBanner}>
+                                    Remove
+                                </button>
+                            </div>
+                        )}
+                        <input
+                            ref={bannerInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={onBannerChange}
+                        />
+                        <button
+                            className="nova_ProfileSettings_banner_upload"
+                            onClick={() => bannerInputRef.current?.click()}
+                        >
+                            {bannerMxc ? "Change Banner" : "Upload Banner"}
+                        </button>
+                        {bannerError && <span className="nova_ProfileSettings_error">Failed to upload banner.</span>}
+                    </div>
+
+                    <h3 className="nova_ProfileSettings_section">Bio</h3>
+                    <EditInPlace
+                        className="nova_ProfileSettings_bio"
+                        label="Bio"
+                        value={bioValue}
+                        saveButtonLabel={_t("common|save")}
+                        cancelButtonLabel={_t("common|cancel")}
+                        savedLabel={_t("common|saved")}
+                        savingLabel={_t("common|updating")}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setBioValue(e.target.value)}
+                        onCancel={() => setBioValue(bio ?? "")}
+                        onSave={onBioSave}
+                    />
+                </div>
+            )}
+
             {userIdentifier && <UsernameBox username={userIdentifier} />}
             <Flex gap="var(--cpd-space-4x)" className="mx_UserProfileSettings_profile_buttons">
                 {externalAccountManagementUrl && (

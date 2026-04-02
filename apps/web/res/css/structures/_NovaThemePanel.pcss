@@ -180,6 +180,123 @@
     }
 }
 
+/* Profile — banner + bio in user info panel */
+
+.nova_UserInfo_banner {
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+    margin-bottom: -40px;
+    flex-shrink: 0;
+}
+
+.nova_UserInfo_banner_img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.nova_UserInfo_avatar_hasBanner {
+    position: relative;
+    z-index: 1;
+    margin-top: 0;
+    padding-top: 0;
+
+    .mx_UserInfo_avatar_transition_child {
+        border: 3px solid var(--cpd-color-bg-canvas-default);
+        border-radius: 50%;
+    }
+}
+
+.nova_UserInfo_bio {
+    margin-top: 6px;
+    color: var(--cpd-color-text-secondary);
+    text-align: center;
+    padding: 0 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Profile settings — banner + bio in settings panel */
+
+.nova_ProfileSettings_extended {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nova_ProfileSettings_section {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cpd-color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 8px 0 4px;
+}
+
+.nova_ProfileSettings_banner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nova_ProfileSettings_banner_preview {
+    position: relative;
+    width: 100%;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.nova_ProfileSettings_banner_remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.8);
+    }
+}
+
+.nova_ProfileSettings_banner_upload {
+    align-self: flex-start;
+    background: var(--cpd-color-bg-action-secondary-rest);
+    color: var(--cpd-color-text-primary);
+    border: 1px solid var(--cpd-color-border-interactive);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--cpd-color-bg-action-secondary-hovered);
+    }
+}
+
+.nova_ProfileSettings_bio {
+    width: 100%;
+}
+
+.nova_ProfileSettings_error {
+    color: var(--cpd-color-text-critical-primary);
+    font-size: 12px;
+}
+
 /* Game Clips panel — full-height iframe */
 
 .nova_GameClipsPanel {

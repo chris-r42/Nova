@@ -15,6 +15,7 @@ import MatrixClientContext from "../../../../contexts/MatrixClientContext";
 import { type Member } from "../../../views/right_panel/UserInfo";
 import { useUserTimezone } from "../../../../hooks/useUserTimezone";
 import UserIdentifierCustomisations from "../../../../customisations/UserIdentifier";
+import { useNovaProfileForUser } from "../../../../hooks/useNovaProfile";
 
 export interface PresenceInfo {
     lastActiveAgo: number | undefined;
@@ -28,26 +29,13 @@ export interface TimezoneInfo {
 }
 
 export interface UserInfoHeaderState {
-    /**
-     * callback function when selected user avatar is clicked in user info
-     */
     onMemberAvatarClick: () => void;
-    /**
-     * Object containing information about the precense of the selected user
-     */
     precenseInfo: PresenceInfo;
-    /**
-     * Boolean that show or hide the precense information
-     */
     showPresence: boolean;
-    /**
-     *  Timezone object
-     */
     timezoneInfo: TimezoneInfo | null;
-    /**
-     * Displayed identifier for the selected user
-     */
     userIdentifier: string | null;
+    novaBio: string | null;
+    novaBannerMxc: string | null;
 }
 interface UserInfoHeaderViewModelProps {
     member: Member;
@@ -73,6 +61,7 @@ export function useUserfoHeaderViewModel({ member, roomId }: UserInfoHeaderViewM
     const enablePresenceByHsUrl = SdkConfig.get("enable_presence_by_hs_url");
 
     const timezoneInfo = useUserTimezone(cli, member.userId);
+    const { bio: novaBio, bannerMxc: novaBannerMxc } = useNovaProfileForUser(cli, member.userId);
 
     const userIdentifier = UserIdentifierCustomisations.getDisplayUserIdentifier?.(member.userId, {
         roomId,
@@ -111,5 +100,7 @@ export function useUserfoHeaderViewModel({ member, roomId }: UserInfoHeaderViewM
         precenseInfo,
         timezoneInfo,
         userIdentifier,
+        novaBio,
+        novaBannerMxc,
     };
 }
