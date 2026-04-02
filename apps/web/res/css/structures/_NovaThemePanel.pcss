@@ -290,42 +290,109 @@
     }
 }
 
-/* Profile — banner + bio in user info panel */
+/* Profile — Discord-style right panel header */
 
-.nova_UserInfo_banner {
+.nova_UserInfo_header {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.nova_UserInfo_bannerArea {
     width: 100%;
     height: 120px;
     overflow: hidden;
-    margin-bottom: -40px;
     flex-shrink: 0;
 }
 
-.nova_UserInfo_banner_img {
+.nova_UserInfo_bannerImg {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-.nova_UserInfo_avatar_hasBanner {
-    position: relative;
-    z-index: 1;
-    margin-top: 0;
-    padding-top: 0;
+.nova_UserInfo_bannerPlaceholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a0900 0%, #3d1800 50%, #1a0900 100%);
+}
 
-    .mx_UserInfo_avatar_transition_child {
-        border: 3px solid var(--cpd-color-bg-canvas-default);
-        border-radius: 50%;
+.nova_UserInfo_avatarRow {
+    display: flex;
+    align-items: flex-end;
+    padding: 0 16px;
+    margin-top: -40px;
+    margin-bottom: 8px;
+}
+
+.nova_UserInfo_avatarWrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid var(--cpd-color-bg-canvas-default);
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    .mx_BaseAvatar {
+        width: 100% !important;
+        height: 100% !important;
     }
 }
 
-.nova_UserInfo_bio {
-    margin-top: 6px;
+.nova_UserInfo_identity {
+    padding: 0 16px 12px;
+    border-bottom: 1px solid var(--cpd-color-border-interactive);
+    margin: 0 0 4px;
+}
+
+.nova_UserInfo_displayName {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--cpd-color-text-primary);
+    word-break: break-word;
+    line-height: 1.2;
+}
+
+.nova_UserInfo_mxid {
+    font-size: 13px;
     color: var(--cpd-color-text-secondary);
-    text-align: center;
-    padding: 0 12px;
+    margin-top: 2px;
+    word-break: break-all;
+}
+
+.nova_UserInfo_presence {
+    margin-top: 4px;
+    font-size: 12px;
+}
+
+.nova_UserInfo_timezone {
+    font-size: 12px;
+    color: var(--cpd-color-text-secondary);
+    margin-top: 4px;
+}
+
+.nova_UserInfo_section {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cpd-color-border-interactive);
+}
+
+.nova_UserInfo_sectionLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cpd-color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 6px;
+}
+
+.nova_UserInfo_bio {
+    font-size: 13px;
+    color: var(--cpd-color-text-primary);
     white-space: pre-wrap;
     word-break: break-word;
+    line-height: 1.4;
 }
 
 /* Profile settings — banner + bio in settings panel */
