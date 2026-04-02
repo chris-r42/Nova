@@ -88,11 +88,12 @@ export default function MemberAvatar({
             url={imageUrl}
             onClick={
                 viewUserOnClick
-                    ? () => {
+                    ? (e) => {
                           dis.dispatch({
                               action: Action.ViewUser,
                               member: propsMember,
                               push: card.isCard,
+                              cardPosition: { x: e.clientX, y: e.clientY },
                           });
                       }
                     : props.onClick

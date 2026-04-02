@@ -19,4 +19,10 @@ export interface ViewUserPayload extends ActionPayload {
      * should be shown (hide whichever relevant components).
      */
     member?: RoomMember | User;
+
+    /**
+     * Optional mouse position for showing a floating profile card.
+     * When present, NovaProfileCard will be shown instead of the right panel.
+     */
+    cardPosition?: { x: number; y: number };
 }

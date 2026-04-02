@@ -65,6 +65,7 @@ import { type SwitchSpacePayload } from "../../dispatcher/payloads/SwitchSpacePa
 import LeftPanelLiveShareWarning from "../views/beacon/LeftPanelLiveShareWarning";
 import HomePage from "./HomePage";
 import GameClipsPanel from "./GameClipsPanel";
+import { NovaProfileCardManager } from "../views/user/NovaProfileCard";
 import { PipContainer } from "./PipContainer";
 import { monitorSyncedPushRules } from "../../utils/pushRules/monitorSyncedPushRules";
 import { type ConfigOptions } from "../../SdkConfig";
@@ -836,6 +837,7 @@ class LoggedInView extends React.Component<IProps, IState> {
                     <div className={bodyClasses}>{content}</div>
                 </div>
                 <PipContainer />
+                <NovaProfileCardManager />
                 <NonUrgentToastContainer />
                 {audioFeedArraysForCalls}
             </MatrixClientContextProvider>
