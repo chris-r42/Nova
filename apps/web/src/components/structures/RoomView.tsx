@@ -1331,6 +1331,8 @@ export class RoomView extends React.Component<IRoomProps, IRoomState> {
                 }
                 break;
             case Action.ViewUser:
+                // If a card position is provided, the floating NovaProfileCard handles it
+                if (payload.cardPosition) break;
                 if (payload.member) {
                     if (payload.push) {
                         RightPanelStore.instance.pushCard({
