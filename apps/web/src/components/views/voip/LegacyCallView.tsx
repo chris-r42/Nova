@@ -192,10 +192,8 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         console.log("[Nova] video capabilities:", capabilities?.codecs.map((c) => c.mimeType));
         if (!capabilities) return;
 
-        const h264 = capabilities.codecs.filter((c) => c.mimeType === "video/H264");
-        const vp9 = capabilities.codecs.filter((c) => c.mimeType === "video/VP9");
-        const rest = capabilities.codecs.filter((c) => c.mimeType !== "video/H264" && c.mimeType !== "video/VP9");
-        const preferred = [...h264, ...vp9, ...rest];
+        // Strip VP8 entirely — force H264 (then VP9 as fallback)
+        const preferred = capabilities.codecs.filter((c) => c.mimeType !== "video/VP8");
 
         const transceivers = peerConn.getTransceivers();
         console.log("[Nova] transceivers found:", transceivers.length, transceivers.map((t) => ({
