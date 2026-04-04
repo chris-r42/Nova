@@ -193,39 +193,28 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         // Strip VP8 — prefer H264 then VP9
         const preferred = capabilities.codecs.filter((c) => c.mimeType !== "video/VP8");
 
-        const applyPreference = (transceiver: RTCRtpTransceiver, label: string): void => {
-            try {
-                transceiver.setCodecPreferences(preferred);
-                console.log("[Nova] H264 preference applied via", label);
-            } catch (e) {
-                console.warn("[Nova] setCodecPreferences failed via", label, e);
+        const applyToVideoTransceivers = (): void => {
+            for (const transceiver of peerConn.getTransceivers()) {
+                if (transceiver.receiver.track?.kind === "video") {
+                    try {
+                        transceiver.setCodecPreferences(preferred);
+                        console.log("[Nova] H264 preference applied to video transceiver mid:", transceiver.mid);
+                    } catch (e) {
+                        console.warn("[Nova] setCodecPreferences failed:", e);
+                    }
+                }
             }
         };
 
-        // Patch addTransceiver
-        const origAddTransceiver = peerConn.addTransceiver.bind(peerConn);
-        (peerConn as any).addTransceiver = (
-            trackOrKind: MediaStreamTrack | string,
-            init?: RTCRtpTransceiverInit,
-        ): RTCRtpTransceiver => {
-            const transceiver = origAddTransceiver(trackOrKind, init);
-            const kind = typeof trackOrKind === "string" ? trackOrKind : trackOrKind.kind;
-            if (kind === "video") applyPreference(transceiver, "addTransceiver");
-            return transceiver;
+        // Patch setRemoteDescription — fires when the friend's screenshare offer arrives.
+        // We set H264 preference after new transceivers are created but before createAnswer runs.
+        const origSetRemoteDescription = peerConn.setRemoteDescription.bind(peerConn);
+        (peerConn as any).setRemoteDescription = async (desc: RTCSessionDescriptionInit): Promise<void> => {
+            await origSetRemoteDescription(desc);
+            applyToVideoTransceivers();
         };
 
-        // Patch addTrack (SDK may use this instead of addTransceiver)
-        const origAddTrack = peerConn.addTrack.bind(peerConn);
-        (peerConn as any).addTrack = (track: MediaStreamTrack, ...streams: MediaStream[]): RTCRtpSender => {
-            const sender = origAddTrack(track, ...streams);
-            if (track.kind === "video") {
-                const transceiver = peerConn.getTransceivers().find((t) => t.sender === sender);
-                if (transceiver) applyPreference(transceiver, "addTrack");
-            }
-            return sender;
-        };
-
-        console.log("[Nova] video transceiver hook installed (addTransceiver + addTrack)");
+        console.log("[Nova] setRemoteDescription hook installed");
     }
 
     private onFeedsChanged = (newFeeds: Array<CallFeed>): void => {
