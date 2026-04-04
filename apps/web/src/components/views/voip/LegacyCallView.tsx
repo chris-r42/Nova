@@ -81,9 +81,12 @@ function exitFullscreen(): void {
 }
 
 export default class LegacyCallView extends React.Component<IProps, IState> {
+    private static readonly SCREENSHARE_MAX_BITRATE = 12_000_000;
+    private static readonly SCREENSHARE_MAX_FRAMERATE = 60;
     private dispatcherRef?: string;
     private contentWrapperRef = createRef<HTMLDivElement>();
     private buttonsRef = createRef<LegacyCallViewButtons>();
+    private screenshareTuningTimer?: ReturnType<typeof setTimeout>;
 
     public constructor(props: IProps) {
         super(props);
@@ -112,6 +115,11 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
     public componentWillUnmount(): void {
         if (getFullScreenElement()) {
             exitFullscreen();
+        }
+
+        if (this.screenshareTuningTimer) {
+            clearTimeout(this.screenshareTuningTimer);
+            this.screenshareTuningTimer = undefined;
         }
 
         document.removeEventListener("keydown", this.onNativeKeyDown);
@@ -180,6 +188,7 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         this.setState({ callState: state });
         if (state === CallState.Connected) {
             this.installVideoTransceiverHook();
+            void this.scheduleScreenshareTuning();
         }
     };
 
@@ -226,7 +235,71 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
             micMuted: this.props.call.isMicrophoneMuted(),
             vidMuted: this.props.call.isLocalVideoMuted(),
         });
+        void this.scheduleScreenshareTuning();
     };
+
+    private getPeerConnection(): RTCPeerConnection | null {
+        return (this.props.call as any).peerConn as RTCPeerConnection | null;
+    }
+
+    private scheduleScreenshareTuning(): void {
+        if (this.screenshareTuningTimer) {
+            clearTimeout(this.screenshareTuningTimer);
+        }
+
+        this.screenshareTuningTimer = setTimeout(() => {
+            this.screenshareTuningTimer = undefined;
+            void this.tuneLocalScreenshare();
+        }, 250);
+    }
+
+    private async tuneLocalScreenshare(): Promise<void> {
+        const peerConn = this.getPeerConnection();
+        const screenshareTrack = this.props.call.localScreensharingStream?.getVideoTracks()[0];
+        if (!peerConn || !screenshareTrack) return;
+
+        try {
+            await screenshareTrack.applyConstraints({
+                frameRate: { ideal: LegacyCallView.SCREENSHARE_MAX_FRAMERATE, max: LegacyCallView.SCREENSHARE_MAX_FRAMERATE },
+            });
+        } catch (e) {
+            console.warn("[Nova] Failed to apply screenshare capture constraints:", e);
+        }
+
+        try {
+            screenshareTrack.contentHint = "detail";
+        } catch (e) {
+            console.warn("[Nova] Failed to set screenshare contentHint:", e);
+        }
+
+        for (const sender of peerConn.getSenders()) {
+            if (sender.track?.id !== screenshareTrack.id) continue;
+
+            try {
+                const parameters = sender.getParameters();
+                const encodings =
+                    parameters.encodings && parameters.encodings.length > 0 ? [...parameters.encodings] : [{} as RTCRtpEncodingParameters];
+
+                encodings[0] = {
+                    ...encodings[0],
+                    maxBitrate: LegacyCallView.SCREENSHARE_MAX_BITRATE,
+                    maxFramerate: LegacyCallView.SCREENSHARE_MAX_FRAMERATE,
+                };
+
+                await sender.setParameters({
+                    ...parameters,
+                    degradationPreference: "maintain-resolution",
+                    encodings,
+                } as RTCRtpSendParameters & { degradationPreference?: RTCDegradationPreference });
+
+                console.log("[Nova] Screenshare sender tuned for quality");
+            } catch (e) {
+                console.warn("[Nova] Failed to tune screenshare sender:", e);
+            }
+
+            break;
+        }
+    }
 
     private onCallLocalHoldUnhold = (): void => {
         this.setState({
@@ -311,6 +384,10 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         this.setState({
             screensharing: isScreensharing,
         });
+
+        if (isScreensharing) {
+            void this.scheduleScreenshareTuning();
+        }
     };
 
     // we register global shortcuts here, they *must not conflict* with local shortcuts elsewhere or both will fire
