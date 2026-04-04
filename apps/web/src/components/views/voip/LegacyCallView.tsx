@@ -179,38 +179,40 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
     private onCallState = (state: CallState): void => {
         this.setState({ callState: state });
         if (state === CallState.Connected) {
-            this.applyH264Preference();
+            this.installVideoTransceiverHook();
         }
     };
 
-    private applyH264Preference(): void {
+    private installVideoTransceiverHook(): void {
         const peerConn = (this.props.call as any).peerConn as RTCPeerConnection | null;
-        console.log("[Nova] applyH264Preference called, peerConn:", peerConn);
         if (!peerConn) return;
 
         const capabilities = RTCRtpSender.getCapabilities?.("video");
-        console.log("[Nova] video capabilities:", capabilities?.codecs.map((c) => c.mimeType));
         if (!capabilities) return;
 
-        // Strip VP8 entirely — force H264 (then VP9 as fallback)
+        // Strip VP8 — prefer H264 then VP9
         const preferred = capabilities.codecs.filter((c) => c.mimeType !== "video/VP8");
 
-        const transceivers = peerConn.getTransceivers();
-        console.log("[Nova] transceivers found:", transceivers.length, transceivers.map((t) => ({
-            mid: t.mid,
-            direction: t.direction,
-            senderTrackKind: t.sender.track?.kind ?? "null",
-            receiverTrackKind: t.receiver.track?.kind ?? "null",
-        })));
-
-        for (const transceiver of transceivers) {
-            try {
-                transceiver.setCodecPreferences(preferred);
-                console.log("[Nova] setCodecPreferences applied on transceiver mid:", transceiver.mid);
-            } catch (e) {
-                console.warn("[Nova] setCodecPreferences failed on transceiver mid:", transceiver.mid, e);
+        // Patch addTransceiver so any video transceiver gets H264 preference
+        // set immediately on creation, before the SDK builds the offer
+        const origAddTransceiver = peerConn.addTransceiver.bind(peerConn);
+        (peerConn as any).addTransceiver = (
+            trackOrKind: MediaStreamTrack | string,
+            init?: RTCRtpTransceiverInit,
+        ): RTCRtpTransceiver => {
+            const transceiver = origAddTransceiver(trackOrKind, init);
+            const kind = typeof trackOrKind === "string" ? trackOrKind : trackOrKind.kind;
+            if (kind === "video") {
+                try {
+                    transceiver.setCodecPreferences(preferred);
+                    console.log("[Nova] H264 preference applied to new video transceiver");
+                } catch (e) {
+                    console.warn("[Nova] setCodecPreferences failed:", e);
+                }
             }
-        }
+            return transceiver;
+        };
+        console.log("[Nova] video transceiver hook installed");
     }
 
     private onFeedsChanged = (newFeeds: Array<CallFeed>): void => {
@@ -300,11 +302,6 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
             isScreensharing = await this.props.call.setScreensharingEnabled(false);
         } else {
             isScreensharing = await this.props.call.setScreensharingEnabled(true);
-            if (isScreensharing) {
-                // Apply H264 preference to the new screenshare transceiver and renegotiate
-                this.applyH264Preference();
-                (this.props.call as any).negotiate?.();
-            }
         }
 
         this.props.setSidebarShown?.(true);
