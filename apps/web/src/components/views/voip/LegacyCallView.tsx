@@ -185,9 +185,11 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
 
     private applyH264Preference(): void {
         const peerConn = (this.props.call as any).peerConn as RTCPeerConnection | null;
+        console.log("[Nova] applyH264Preference called, peerConn:", peerConn);
         if (!peerConn) return;
 
         const capabilities = RTCRtpSender.getCapabilities?.("video");
+        console.log("[Nova] video capabilities:", capabilities?.codecs.map((c) => c.mimeType));
         if (!capabilities) return;
 
         const h264 = capabilities.codecs.filter((c) => c.mimeType === "video/H264");
@@ -199,8 +201,9 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
             if (transceiver.sender.track?.kind === "video" || transceiver.receiver.track?.kind === "video") {
                 try {
                     transceiver.setCodecPreferences(preferred);
-                } catch {
-                    // codec list may not be compatible with this transceiver
+                    console.log("[Nova] setCodecPreferences applied, H264 first");
+                } catch (e) {
+                    console.warn("[Nova] setCodecPreferences failed:", e);
                 }
             }
         }
