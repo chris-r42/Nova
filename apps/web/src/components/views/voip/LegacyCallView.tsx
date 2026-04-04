@@ -193,8 +193,16 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         // Strip VP8 — prefer H264 then VP9
         const preferred = capabilities.codecs.filter((c) => c.mimeType !== "video/VP8");
 
-        // Patch addTransceiver so any video transceiver gets H264 preference
-        // set immediately on creation, before the SDK builds the offer
+        const applyPreference = (transceiver: RTCRtpTransceiver, label: string): void => {
+            try {
+                transceiver.setCodecPreferences(preferred);
+                console.log("[Nova] H264 preference applied via", label);
+            } catch (e) {
+                console.warn("[Nova] setCodecPreferences failed via", label, e);
+            }
+        };
+
+        // Patch addTransceiver
         const origAddTransceiver = peerConn.addTransceiver.bind(peerConn);
         (peerConn as any).addTransceiver = (
             trackOrKind: MediaStreamTrack | string,
@@ -202,17 +210,22 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         ): RTCRtpTransceiver => {
             const transceiver = origAddTransceiver(trackOrKind, init);
             const kind = typeof trackOrKind === "string" ? trackOrKind : trackOrKind.kind;
-            if (kind === "video") {
-                try {
-                    transceiver.setCodecPreferences(preferred);
-                    console.log("[Nova] H264 preference applied to new video transceiver");
-                } catch (e) {
-                    console.warn("[Nova] setCodecPreferences failed:", e);
-                }
-            }
+            if (kind === "video") applyPreference(transceiver, "addTransceiver");
             return transceiver;
         };
-        console.log("[Nova] video transceiver hook installed");
+
+        // Patch addTrack (SDK may use this instead of addTransceiver)
+        const origAddTrack = peerConn.addTrack.bind(peerConn);
+        (peerConn as any).addTrack = (track: MediaStreamTrack, ...streams: MediaStream[]): RTCRtpSender => {
+            const sender = origAddTrack(track, ...streams);
+            if (track.kind === "video") {
+                const transceiver = peerConn.getTransceivers().find((t) => t.sender === sender);
+                if (transceiver) applyPreference(transceiver, "addTrack");
+            }
+            return sender;
+        };
+
+        console.log("[Nova] video transceiver hook installed (addTransceiver + addTrack)");
     }
 
     private onFeedsChanged = (newFeeds: Array<CallFeed>): void => {
