@@ -81,12 +81,14 @@ function exitFullscreen(): void {
 }
 
 export default class LegacyCallView extends React.Component<IProps, IState> {
-    private static readonly SCREENSHARE_MAX_BITRATE = 12_000_000;
-    private static readonly SCREENSHARE_MAX_FRAMERATE = 60;
     private dispatcherRef?: string;
     private contentWrapperRef = createRef<HTMLDivElement>();
     private buttonsRef = createRef<LegacyCallViewButtons>();
-    private screenshareTuningTimer?: ReturnType<typeof setTimeout>;
+    private screenshareStatsInterval?: ReturnType<typeof setInterval>;
+    private screenshareCaptureProbeVideo?: HTMLVideoElement;
+    private screenshareCaptureProbeRaf?: number;
+    private screenshareCaptureFrameCount = 0;
+    private screenshareCaptureLastLogAt = 0;
 
     public constructor(props: IProps) {
         super(props);
@@ -117,10 +119,8 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
             exitFullscreen();
         }
 
-        if (this.screenshareTuningTimer) {
-            clearTimeout(this.screenshareTuningTimer);
-            this.screenshareTuningTimer = undefined;
-        }
+        this.stopScreenshareStatsLogging();
+        this.stopScreenshareCaptureLogging();
 
         document.removeEventListener("keydown", this.onNativeKeyDown);
         this.updateCallListeners(this.props.call, null);
@@ -188,7 +188,6 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         this.setState({ callState: state });
         if (state === CallState.Connected) {
             this.installVideoTransceiverHook();
-            void this.scheduleScreenshareTuning();
         }
     };
 
@@ -196,34 +195,7 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         const peerConn = (this.props.call as any).peerConn as RTCPeerConnection | null;
         if (!peerConn) return;
 
-        const capabilities = RTCRtpSender.getCapabilities?.("video");
-        if (!capabilities) return;
-
-        // Strip VP8 — prefer H264 then VP9
-        const preferred = capabilities.codecs.filter((c) => c.mimeType !== "video/VP8");
-
-        const applyToVideoTransceivers = (): void => {
-            for (const transceiver of peerConn.getTransceivers()) {
-                if (transceiver.receiver.track?.kind === "video") {
-                    try {
-                        transceiver.setCodecPreferences(preferred);
-                        console.log("[Nova] H264 preference applied to video transceiver mid:", transceiver.mid);
-                    } catch (e) {
-                        console.warn("[Nova] setCodecPreferences failed:", e);
-                    }
-                }
-            }
-        };
-
-        // Patch setRemoteDescription — fires when the friend's screenshare offer arrives.
-        // We set H264 preference after new transceivers are created but before createAnswer runs.
-        const origSetRemoteDescription = peerConn.setRemoteDescription.bind(peerConn);
-        (peerConn as any).setRemoteDescription = async (desc: RTCSessionDescriptionInit): Promise<void> => {
-            await origSetRemoteDescription(desc);
-            applyToVideoTransceivers();
-        };
-
-        console.log("[Nova] setRemoteDescription hook installed");
+        console.log("[Nova] video transceiver hook installed without forced codec preference");
     }
 
     private onFeedsChanged = (newFeeds: Array<CallFeed>): void => {
@@ -235,42 +207,118 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
             micMuted: this.props.call.isMicrophoneMuted(),
             vidMuted: this.props.call.isLocalVideoMuted(),
         });
-        void this.scheduleScreenshareTuning();
+
+        if (this.props.call.localScreensharingStream?.getVideoTracks()[0]) {
+            this.startScreenshareStatsLogging();
+            this.startScreenshareCaptureLogging();
+        } else {
+            this.stopScreenshareStatsLogging();
+            this.stopScreenshareCaptureLogging();
+        }
     };
 
     private getPeerConnection(): RTCPeerConnection | null {
         return (this.props.call as any).peerConn as RTCPeerConnection | null;
     }
 
-    private scheduleScreenshareTuning(): void {
-        if (this.screenshareTuningTimer) {
-            clearTimeout(this.screenshareTuningTimer);
-        }
+    private startScreenshareStatsLogging(): void {
+        if (this.screenshareStatsInterval) return;
 
-        this.screenshareTuningTimer = setTimeout(() => {
-            this.screenshareTuningTimer = undefined;
-            void this.tuneLocalScreenshare();
-        }, 250);
+        void this.logScreenshareStats();
+        this.screenshareStatsInterval = setInterval(() => {
+            void this.logScreenshareStats();
+        }, 2000);
     }
 
-    private async tuneLocalScreenshare(): Promise<void> {
+    private stopScreenshareStatsLogging(): void {
+        if (this.screenshareStatsInterval) {
+            clearInterval(this.screenshareStatsInterval);
+            this.screenshareStatsInterval = undefined;
+        }
+    }
+
+    private startScreenshareCaptureLogging(): void {
+        const screenshareStream = this.props.call.localScreensharingStream;
+        if (!screenshareStream || this.screenshareCaptureProbeVideo) return;
+
+        const probeVideo = document.createElement("video");
+        probeVideo.muted = true;
+        probeVideo.playsInline = true;
+        probeVideo.srcObject = screenshareStream;
+
+        this.screenshareCaptureProbeVideo = probeVideo;
+        this.screenshareCaptureFrameCount = 0;
+        this.screenshareCaptureLastLogAt = performance.now();
+
+        void probeVideo.play().catch((e) => {
+            console.warn("[Nova] Failed to start screenshare capture probe:", e);
+        });
+
+        const tick = (_now: number, metadata?: VideoFrameCallbackMetadata): void => {
+            if (!this.screenshareCaptureProbeVideo) return;
+
+            this.screenshareCaptureFrameCount += 1;
+            const elapsedMs = performance.now() - this.screenshareCaptureLastLogAt;
+            if (elapsedMs >= 2000) {
+                const captureFps = (this.screenshareCaptureFrameCount * 1000) / elapsedMs;
+                console.log("[Nova] Screenshare capture diagnostics", {
+                    captureFps,
+                    presentedFrames: metadata?.presentedFrames,
+                    videoWidth: probeVideo.videoWidth,
+                    videoHeight: probeVideo.videoHeight,
+                    currentTime: probeVideo.currentTime,
+                    readyState: probeVideo.readyState,
+                });
+                this.screenshareCaptureFrameCount = 0;
+                this.screenshareCaptureLastLogAt = performance.now();
+            }
+
+            if ("requestVideoFrameCallback" in probeVideo) {
+                this.screenshareCaptureProbeRaf = probeVideo.requestVideoFrameCallback(tick);
+            } else {
+                this.screenshareCaptureProbeRaf = window.requestAnimationFrame((nextNow) => tick(nextNow));
+            }
+        };
+
+        if ("requestVideoFrameCallback" in probeVideo) {
+            this.screenshareCaptureProbeRaf = probeVideo.requestVideoFrameCallback(tick);
+        } else {
+            this.screenshareCaptureProbeRaf = window.requestAnimationFrame((nextNow) => tick(nextNow));
+        }
+    }
+
+    private stopScreenshareCaptureLogging(): void {
+        if (this.screenshareCaptureProbeVideo && this.screenshareCaptureProbeRaf !== undefined) {
+            if ("cancelVideoFrameCallback" in this.screenshareCaptureProbeVideo) {
+                this.screenshareCaptureProbeVideo.cancelVideoFrameCallback(this.screenshareCaptureProbeRaf);
+            } else {
+                cancelAnimationFrame(this.screenshareCaptureProbeRaf);
+            }
+        }
+
+        if (this.screenshareCaptureProbeVideo) {
+            this.screenshareCaptureProbeVideo.pause();
+            this.screenshareCaptureProbeVideo.srcObject = null;
+            this.screenshareCaptureProbeVideo = undefined;
+        }
+
+        this.screenshareCaptureProbeRaf = undefined;
+        this.screenshareCaptureFrameCount = 0;
+        this.screenshareCaptureLastLogAt = 0;
+    }
+
+    private async logScreenshareStats(): Promise<void> {
         const peerConn = this.getPeerConnection();
         const screenshareTrack = this.props.call.localScreensharingStream?.getVideoTracks()[0];
         if (!peerConn || !screenshareTrack) return;
-
-        try {
-            await screenshareTrack.applyConstraints({
-                frameRate: { ideal: LegacyCallView.SCREENSHARE_MAX_FRAMERATE, max: LegacyCallView.SCREENSHARE_MAX_FRAMERATE },
-            });
-        } catch (e) {
-            console.warn("[Nova] Failed to apply screenshare capture constraints:", e);
-        }
 
         try {
             screenshareTrack.contentHint = "detail";
         } catch (e) {
             console.warn("[Nova] Failed to set screenshare contentHint:", e);
         }
+
+        const trackSettings = screenshareTrack.getSettings();
 
         for (const sender of peerConn.getSenders()) {
             if (sender.track?.id !== screenshareTrack.id) continue;
@@ -280,21 +328,56 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
                 const encodings =
                     parameters.encodings && parameters.encodings.length > 0 ? [...parameters.encodings] : [{} as RTCRtpEncodingParameters];
 
-                encodings[0] = {
+                const nextEncoding = {
                     ...encodings[0],
-                    maxBitrate: LegacyCallView.SCREENSHARE_MAX_BITRATE,
-                    maxFramerate: LegacyCallView.SCREENSHARE_MAX_FRAMERATE,
-                };
+                    networkPriority: "high",
+                    priority: "high",
+                } as RTCRtpEncodingParameters & { networkPriority?: RTCPriorityType; priority?: RTCPriorityType };
 
-                await sender.setParameters({
-                    ...parameters,
-                    degradationPreference: "maintain-resolution",
-                    encodings,
-                } as RTCRtpSendParameters & { degradationPreference?: RTCDegradationPreference });
+                const shouldUpdatePriority =
+                    encodings[0]?.networkPriority !== "high" || (encodings[0] as RTCRtpEncodingParameters | undefined)?.priority !== "high";
 
-                console.log("[Nova] Screenshare sender tuned for quality");
+                if (shouldUpdatePriority) {
+                    encodings[0] = nextEncoding;
+                    await sender.setParameters({
+                        ...parameters,
+                        encodings,
+                    });
+                }
+
+                const updatedParameters = sender.getParameters();
+                const senderStats = await sender.getStats();
+                const outbound = Array.from(senderStats.values()).find(
+                    (report) => report.type === "outbound-rtp" && report.kind === "video",
+                );
+                const peerStats = await peerConn.getStats();
+                const transport = Array.from(peerStats.values()).find(
+                    (report) => report.type === "transport" && "selectedCandidatePairId" in report,
+                ) as (RTCStats & { selectedCandidatePairId?: string }) | undefined;
+                const selectedCandidatePair = transport?.selectedCandidatePairId
+                    ? peerStats.get(transport.selectedCandidatePairId)
+                    : undefined;
+                const localCandidate =
+                    selectedCandidatePair && "localCandidateId" in selectedCandidatePair
+                        ? peerStats.get((selectedCandidatePair as RTCStats & { localCandidateId?: string }).localCandidateId!)
+                        : undefined;
+                const remoteCandidate =
+                    selectedCandidatePair && "remoteCandidateId" in selectedCandidatePair
+                        ? peerStats.get((selectedCandidatePair as RTCStats & { remoteCandidateId?: string }).remoteCandidateId!)
+                        : undefined;
+
+                console.log("[Nova] Screenshare diagnostics", {
+                    trackId: screenshareTrack.id,
+                    contentHint: screenshareTrack.contentHint,
+                    trackSettings,
+                    parameters: updatedParameters,
+                    outbound,
+                    selectedCandidatePair,
+                    localCandidate,
+                    remoteCandidate,
+                });
             } catch (e) {
-                console.warn("[Nova] Failed to tune screenshare sender:", e);
+                console.warn("[Nova] Failed to log screenshare stats:", e);
             }
 
             break;
@@ -384,10 +467,6 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
         this.setState({
             screensharing: isScreensharing,
         });
-
-        if (isScreensharing) {
-            void this.scheduleScreenshareTuning();
-        }
     };
 
     // we register global shortcuts here, they *must not conflict* with local shortcuts elsewhere or both will fire
