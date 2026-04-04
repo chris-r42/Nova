@@ -177,10 +177,34 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
     }
 
     private onCallState = (state: CallState): void => {
-        this.setState({
-            callState: state,
-        });
+        this.setState({ callState: state });
+        if (state === CallState.Connected) {
+            this.applyH264Preference();
+        }
     };
+
+    private applyH264Preference(): void {
+        const peerConn = (this.props.call as any).peerConn as RTCPeerConnection | null;
+        if (!peerConn) return;
+
+        const capabilities = RTCRtpSender.getCapabilities?.("video");
+        if (!capabilities) return;
+
+        const h264 = capabilities.codecs.filter((c) => c.mimeType === "video/H264");
+        const vp9 = capabilities.codecs.filter((c) => c.mimeType === "video/VP9");
+        const rest = capabilities.codecs.filter((c) => c.mimeType !== "video/H264" && c.mimeType !== "video/VP9");
+        const preferred = [...h264, ...vp9, ...rest];
+
+        for (const transceiver of peerConn.getTransceivers()) {
+            if (transceiver.sender.track?.kind === "video" || transceiver.receiver.track?.kind === "video") {
+                try {
+                    transceiver.setCodecPreferences(preferred);
+                } catch {
+                    // codec list may not be compatible with this transceiver
+                }
+            }
+        }
+    }
 
     private onFeedsChanged = (newFeeds: Array<CallFeed>): void => {
         const { primary, secondary, sidebar } = LegacyCallView.getOrderedFeeds(newFeeds);
@@ -269,6 +293,11 @@ export default class LegacyCallView extends React.Component<IProps, IState> {
             isScreensharing = await this.props.call.setScreensharingEnabled(false);
         } else {
             isScreensharing = await this.props.call.setScreensharingEnabled(true);
+            if (isScreensharing) {
+                // Apply H264 preference to the new screenshare transceiver and renegotiate
+                this.applyH264Preference();
+                (this.props.call as any).negotiate?.();
+            }
         }
 
         this.props.setSidebarShown?.(true);
